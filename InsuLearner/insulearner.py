@@ -17,6 +17,8 @@ warnings.filterwarnings("ignore",category=matplotlib.MatplotlibDeprecationWarnin
 
 import numpy as np
 import pandas as pd
+import matplotlib
+# matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import scipy
@@ -144,7 +146,7 @@ def plot_aggregated_scatter(aggregated_df, period_window_size_hours, lr_model=No
     """
     period_window_size_days = period_window_size_hours / 24
 
-    fig, ax = plt.subplots(figsize=(12, 12))
+    fig, ax = plt.subplots(figsize=(8, 8))
     win_start_dates_str = aggregated_df["start_date"].dt.strftime("%Y-%m-%d")
     win_end_dates_str = aggregated_df["end_date"].dt.strftime("%Y-%m-%d")
     plt.title(f"Insulin Prediction Modeling, Aggr Period={period_window_size_days} Days, {win_start_dates_str.values[0]} to {win_end_dates_str.values[-1]}, {len(aggregated_df)} data points")
@@ -288,21 +290,21 @@ def load_user_data(username, password, data_start_date, data_end_date, estimatio
 
 def main():
 
-    parser = argparse.ArgumentParser("Run Insulin Pump Settings Estimation with Linear Regression")
+    parser = argparse.ArgumentParser("InsuLearner: Estimate Insulin Pump Settings with Linear Regression")
 
     parser.add_argument("tp_username", type=str, help="Email username for Tidepool Account")
     parser.add_argument("tp_password", type=str, help="Password for Tidepool Account")
-    parser.add_argument("--height_inches", type=float, help="Your height in inches")
-    parser.add_argument("--weight_lbs", type=float, help="Your weight in pounds")
-    parser.add_argument("--gender", choices=["male", "female"])
+    parser.add_argument("-ht", "--height_inches", type=float, help="Your height in inches")
+    parser.add_argument("-wt", "--weight_lbs", type=float, help="Your weight in pounds")
+    parser.add_argument("-g", "--gender", choices=["male", "female"])
     parser.add_argument("--num_days", type=int, help="Number of days in the past to analyze data", default=60)
-    parser.add_argument("--CSF", help="If entered, will use this CSF instead of estimating it from height and weight.")
-    parser.add_argument("--estimate_agg_boundaries", "-eb", action="store_true", default=True,
+    parser.add_argument("--CSF", type=float, help="If entered, will use this CSF instead of estimating it from height and weight.")
+    parser.add_argument("-eb", "--estimate_agg_boundaries", "-eb", action="store_true", default=True,
                         help="Use an autocorrelation-like algorithm to estimate aggregation boundaries to denoise the fit.")
 
-    parser.add_argument("--agg_period_window_size_hours", "-aw", type=int,
-                        help="The size in hours of each period to aggregate for fitting the model.", default=24 * 30)
-    parser.add_argument("--agg_period_hop_size_hours", "-ah", type=int,
+    parser.add_argument("-aw", "--agg_period_window_size_hours", type=int,
+                        help="The size in hours of each period to aggregate for fitting the model.", default=24 * 7)
+    parser.add_argument("-ah", "--agg_period_hop_size_hours", "-ah", type=int,
                         help="The size in hours to hop each period for aggregation.", default=24)
 
     args = parser.parse_args()
@@ -341,12 +343,14 @@ def main():
     user_obj = load_user_data(tp_username, tp_password, data_start_date, data_end_date, estimation_window_size_days)
 
     # Run settings analysis
-    cir_estimate, basal_insulin_estimate, isf_estimate, lr_score = analyze_settings_lr(user_obj,
-                                                                                       data_start_date=data_start_date,
-                                                                                       data_end_date=data_end_date,
-                                                                                       K=K,
-                                                                                       agg_period_window_size_hours=agg_period_window_size_hours,
-                                                                                       agg_period_hop_size_hours=agg_period_hop_size_hours)
+    analyze_settings_lr(user_obj,
+                        data_start_date=data_start_date,
+                        data_end_date=data_end_date,
+                        K=K,
+                        do_plots=True,
+                        use_circadian_hour_estimate=estimate_agg_boundaries,
+                        agg_period_window_size_hours=agg_period_window_size_hours,
+                        agg_period_hop_size_hours=agg_period_hop_size_hours)
 
 
 if __name__ == "__main__":
