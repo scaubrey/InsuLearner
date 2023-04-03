@@ -286,7 +286,7 @@ def load_user_data(username, password, data_start_date, data_end_date, estimatio
     return user
 
 
-if __name__ == "__main__":
+def main():
 
     parser = argparse.ArgumentParser("Run Insulin Pump Settings Estimation with Linear Regression")
 
@@ -347,3 +347,7 @@ if __name__ == "__main__":
                                                                                        K=K,
                                                                                        agg_period_window_size_hours=agg_period_window_size_hours,
                                                                                        agg_period_hop_size_hours=agg_period_hop_size_hours)
+
+
+if __name__ == "__main__":
+    main()

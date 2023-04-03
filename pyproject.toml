@@ -1,9 +1,12 @@
 [tool.poetry]
 name = "insulearner"
-version = "0.1.0"
+version = "0.1.2"
 description = ""
-authors = ["Cameron Summers <scaubrey84@gmail.com>"]
+authors = ["Cameron Summers <contact@cameronsummers.com>"]
 readme = "README.md"
+
+[tool.poetry.scripts]
+my-script = "InsuLearner.insulearner:main"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
