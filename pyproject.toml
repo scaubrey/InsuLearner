@@ -6,7 +6,7 @@ authors = ["Cameron Summers <contact@cameronsummers.com>"]
 readme = "README.md"
 
 [tool.poetry.scripts]
-my-script = "InsuLearner.insulearner:main"
+insulearner = "InsuLearner.insulearner:main"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
