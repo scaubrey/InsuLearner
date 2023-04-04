@@ -17,8 +17,6 @@ warnings.filterwarnings("ignore",category=matplotlib.MatplotlibDeprecationWarnin
 
 import numpy as np
 import pandas as pd
-import matplotlib
-# matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import scipy
@@ -319,6 +317,16 @@ def main():
     estimate_agg_boundaries = args.estimate_agg_boundaries
     agg_period_window_size_hours = args.agg_period_window_size_hours
     agg_period_hop_size_hours = args.agg_period_hop_size_hours
+
+    logger.debug(f"Args:")
+    logger.debug(f"estimation_window_size_days: {estimation_window_size_days}")
+    logger.debug(f"height_inches: {height_inches}")
+    logger.debug(f"weight_lbs: {weight_lbs}")
+    logger.debug(f"gender: {gender}")
+    logger.debug(f"CSF: {CSF}")
+    logger.debug(f"estimate_agg_boundaries: {estimate_agg_boundaries}")
+    logger.debug(f"agg_period_window_size_hours: {agg_period_window_size_hours}")
+    logger.debug(f"agg_period_hop_size_hours: {agg_period_hop_size_hours}")
 
     K = CSF
     if CSF is None:

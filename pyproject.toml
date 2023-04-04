@@ -1,25 +1,40 @@
 [tool.poetry]
 name = "insulearner"
-version = "0.1.2"
-description = ""
+version = "0.1.5"
+description = "Estimate Insulin Pump Settings using Machine Learning"
 authors = ["Cameron Summers <contact@cameronsummers.com>"]
 readme = "README.md"
+license = "GPL-3.0-only"
+homepage = "https://www.cameronsummers.com/how_I_calculate_my_sons_insulin_pump_settings_with_machine_learning"
+repository = "https://github.com/scaubrey/InsuLearner"
+keywords = ["insulin", "diabetes", "pump", "settings", "type 1", "carbohydrate ratio", "insulin sensitivity factor", "basa rate"]
+packages = [
+    { include = "InsuLearner" },
+]
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
 
 [tool.poetry.scripts]
 insulearner = "InsuLearner.insulearner:main"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
-
-[tool.poetry.group.dev.dependencies]
+python = ">3.8"
 numpy = "^1.24.2"
 pandas = "^2.0.0"
 pytest = "^7.2.2"
 requests = "^2.28.2"
 seaborn = "^0.12.2"
-scipy = "^1.10.1"
 scikit-learn = "^1.2.2"
 matplotlib = "^3.7.1"
+scipy = "^1.10.1"
 
 [build-system]
 requires = ["poetry-core"]

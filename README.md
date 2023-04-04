@@ -4,6 +4,13 @@
 
 ---
 
+### _Warning_:
+*_This code can have significant impact on insulin dosing. 
+There are no guardrails included here so it's possible to get poor
+results in some circumstances.
+Check with your doctor before making any changes to dosing settings._*
+
+
 ### Overview:
 
 This is the code underlying [my article](https://www.CameronSummers.com/how_I_calculate_my_sons_insulin_pump_settings_with_machine_learning) 
@@ -34,29 +41,35 @@ Developed and tested with Python 3.9
 
 ## Installation
 
+For easy CLI tool create a virtual environment and then run:
 ```
 pip install insulearner
-cd InsuLearner
 ```
 
-## Usage
+For digging into the code to understand what's going on (recommended):
 
-There is a command line interface in `insulearner.py`
+```
+git clone https://github.com/scaubrey/InsuLearner
+```
 
-### Examples
+## Usage (CLI)
+
+The install with pip provides a command line interface so you can run `insulearner`.
+
+#### CLI Examples
 
 If you don't know your Carbohydrate Sensitivity Factor (CSF) I devised
 an estimator based on height and weight. Note: this estimator is an
 educated guess and *not validated*. It's probably better if you estimate
 it yourself.
 
-`python insulearner.py <your_tidepool_email> <your_tidepool_password> --num_days 60 --height_inches 72 --weight_lbs 200 --gender male`
+`insulearner <your_tidepool_email> <your_tidepool_password> --num_days 60 --height_inches 72 --weight_lbs 200 --gender male`
 
-If you do have an estimate of your CSF:
+If you do have an estimate of your CSF through your own testing:
 
-`python insulearner.py <your_tidepool_email> <your_tidepool_password> --num_days 60 --CSF 4.2`
+`insulearner <your_tidepool_email> <your_tidepool_password> --num_days 60 --CSF 4.2`
 
-### Options
+#### More CLI Options
 
 `--agg_period_window_size_hours` This is the size of the time period in days over which
 aggregate insulin and carb data. I theorized in [my article](https://www.cameronsummers.com/how_I_calculate_my_sons_insulin_pump_settings_with_machine_learning) 
@@ -74,10 +87,19 @@ estimate the hour of the day when blood glucose movement is the least active, ie
 isolating associated insulin and carb effects.
 
 
+## Usage (code)
+
+Once installed with pip, you can use the functions in your code:
+
+```
+>>> from InsuLearner.insulearner import analyze_settings_lr
+```
+
+
 ## Algorithms
 
-There are three algorithms I created that are in this code and worth
-being aware of.
+There are three algorithms I developed that are in this code and worth
+being aware of:
 
 1. An autocorrelation-like algorithm to find inactive periods in data
     in order to help denoise the data for fitting a model.
@@ -90,6 +112,10 @@ being aware of.
         algorithm to approximate it based on blood volume computed via height
         and weight. While based on knowledge of biology this algorithm *has not been validated*. 
 
+## Tests
+
+I included a couple of basic regression tests in the `tests` folder of the code that
+can be run with pytest.
 
 ## Acknowledgements
 
