@@ -207,6 +207,7 @@ class TidepoolUser(object):
         self._creation_meta_filename = "creation_metadata.json"
 
         self.unparsed_events = defaultdict(int)
+        self.dropped_events = defaultdict(int)
 
         self.device_data_json = device_data_json
         self.notes_json = notes_json
@@ -481,14 +482,27 @@ class TidepoolUser(object):
                     self.unparsed_events["{}".format(event_type)] += 1
                 elif event_type == "physicalActivity":
                     self.unparsed_events["{}".format(event_type)] += 1
+                elif event_type == "pumpStatus":
+                    self.unparsed_events["{}".format(event_type)] += 1
+                elif event_type == "dosingDecision":
+                    self.unparsed_events["{}".format(event_type)] += 1
+                elif event_type == "controllerStatus":
+                    self.unparsed_events["{}".format(event_type)] += 1
+                elif event_type == "calibration":
+                    self.unparsed_events["{}".format(event_type)] += 1
+                elif event_type == "pumpSettingsOverride":
+                    self.unparsed_events["{}".format(event_type)] += 1
                 else:
                     raise Exception("Unknown event type")
 
             except Exception as e:
-                logger.warning("Dropped an event of type {} due to error: {}".format(event_type, e))
+                self.dropped_events[f"{event_type}"] += 1
 
         if len(self.unparsed_events) > 0:
-            logger.warning("Unparsed events: {}".format(self.unparsed_events))
+            logger.warning(f"Unparsed events: {self.unparsed_events}")
+
+        if len(self.dropped_events) > 0:
+            logger.warning(f"Dropped events: {self.dropped_events}")
 
     def parse_notes_json_v1(self):
         """
@@ -831,6 +845,14 @@ class TidepoolUser(object):
             window_stats.update(insulin_stats)
             window_stats.update(carb_stats)
             window_stats.update(cgm_stats)
+
+            # Handle basic missing data case: no carbs or insulin found in a time period.
+            # If someone has *some* data missing, the tool will not know and settings will be negatively affected.
+            if insulin_stats["total_insulin"] == 0:
+                raise Exception(f"No insulin found for time period {window_start_datetime} to {window_end_datetime}. Settings will be negatively affected.")
+
+            if carb_stats["total_carbs"] == 0:
+                raise Exception(f"No carbs found for time period {window_start_datetime} to {window_end_datetime}. Settings will be negatively affected.")
 
             all_window_stats.append(window_stats)
 

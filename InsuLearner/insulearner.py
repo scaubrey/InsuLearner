@@ -301,7 +301,7 @@ def main():
                         help="Use an autocorrelation-like algorithm to estimate aggregation boundaries to denoise the fit.")
 
     parser.add_argument("-aw", "--agg_period_window_size_hours", type=int,
-                        help="The size in hours of each period to aggregate for fitting the model.", default=24 * 7)
+                        help="The size in hours of each period to aggregate for fitting the model.", default=24)
     parser.add_argument("-ah", "--agg_period_hop_size_hours", "-ah", type=int,
                         help="The size in hours to hop each period for aggregation.", default=24)
 
@@ -358,7 +358,8 @@ def main():
                         do_plots=True,
                         use_circadian_hour_estimate=estimate_agg_boundaries,
                         agg_period_window_size_hours=agg_period_window_size_hours,
-                        agg_period_hop_size_hours=agg_period_hop_size_hours)
+                        agg_period_hop_size_hours=agg_period_hop_size_hours,
+                        )
 
 
 if __name__ == "__main__":
