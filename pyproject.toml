@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "insulearner"
-version = "0.1.5"
+version = "0.1.6"
 description = "Estimate Insulin Pump Settings using Machine Learning"
 authors = ["Cameron Summers <contact@cameronsummers.com>"]
 readme = "README.md"
