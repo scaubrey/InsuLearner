@@ -277,7 +277,7 @@ def load_user_data(username, password, data_start_date, data_end_date, estimatio
     total_cgm_days = user.get_num_days_span(data_type="cgm")
     total_food_days = user.get_num_days_span(data_type="food")
 
-    if [total_basal_days, total_bolus_days, total_cgm_days, total_food_days] != [estimation_window_size_days]:
+    if np.sum([total_basal_days, total_bolus_days, total_cgm_days, total_food_days]) != (estimation_window_size_days*4):
         logger.warning(f"*** Warning *** : Num data days span not the size of estimation window size of {estimation_window_size_days} days")
         logger.warning(f"Basal Days Span {total_basal_days}. Bolus Days Span {total_bolus_days}. CGM Days Span {total_cgm_days}. Food Days Span {total_food_days}")
 
