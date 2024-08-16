@@ -86,6 +86,8 @@ be days 3-5, and so on.
 estimate the hour of the day when blood glucose movement is the least active, ie 
 isolating associated insulin and carb effects.
 
+`--dates` If set this will plot the dates of the measurement points instead of average CGM value.
+This can be useful to observe for example menstrual cycle influence on ISF.
 
 ## Usage (code)
 

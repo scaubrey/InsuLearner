@@ -74,7 +74,8 @@ def estimate_therapy_settings_from_window_stats_lr(aggregated_df,
                                                    y="total_insulin",
                                                    do_plots=True,
                                                    trained_model=None,
-                                                   weight_scheme=None):
+                                                   weight_scheme=None,
+                                                   dates=False):
     """
     Fit the linear model and estimate settings
     """
@@ -133,12 +134,13 @@ def estimate_therapy_settings_from_window_stats_lr(aggregated_df,
                                 lr_model=lm_carb_to_insulin,
                                 settings=settings,
                                 plot_aace=True,
-                                weight_scheme=weight_scheme)
+                                weight_scheme=weight_scheme,
+                                dates=dates)
 
     return settings
 
 
-def plot_aggregated_scatter(aggregated_df, period_window_size_hours, lr_model=None, settings=None, plot_aace=True, weight_scheme=None):
+def plot_aggregated_scatter(aggregated_df, period_window_size_hours, lr_model=None, settings=None, plot_aace=True, weight_scheme=None,dates=False):
     """
     Plot the linear model on the data.
     """
@@ -149,10 +151,13 @@ def plot_aggregated_scatter(aggregated_df, period_window_size_hours, lr_model=No
     win_end_dates_str = aggregated_df["end_date"].dt.strftime("%Y-%m-%d")
     plt.title(f"Insulin Prediction Modeling, Aggr Period={period_window_size_days} Days, {win_start_dates_str.values[0]} to {win_end_dates_str.values[-1]}, {len(aggregated_df)} data points")
 
-    hue_col = "cgm_geo_mean"
-    # hue_col = None
+    if dates:
+        hue_col = "start_date"	
+    else:
+        hue_col = "cgm_geo_mean"        
+	# hue_col = None
 
-    vars_to_plot = ["total_carbs", "total_insulin", "cgm_geo_mean"]
+    vars_to_plot = ["total_carbs", "total_insulin", "cgm_geo_mean", "start_date"]
     scatter_df = aggregated_df[vars_to_plot]
 
     sns.scatterplot(data=scatter_df, x="total_carbs", y="total_insulin", hue=hue_col, ax=ax)
@@ -221,7 +226,8 @@ def analyze_settings_lr(user, data_start_date, data_end_date,
                         use_circadian_hour_estimate=True,
                         agg_period_window_size_hours=24,
                         agg_period_hop_size_hours=24,
-                        weight_scheme=None):
+                        weight_scheme=None,
+                        dates=False):
     """
     Aggregate the data and fit a linear model
     """
@@ -244,7 +250,8 @@ def analyze_settings_lr(user, data_start_date, data_end_date,
                                                               x="total_carbs",
                                                               y="total_insulin",
                                                               do_plots=do_plots,
-                                                              weight_scheme=weight_scheme)
+                                                              weight_scheme=weight_scheme,
+                                                              dates=dates)
 
     cir_estimate, isf_estimate, basal_insulin_estimate, lr_model, lr_score, K = settings
 
@@ -304,7 +311,8 @@ def main():
                         help="The size in hours of each period to aggregate for fitting the model.", default=24)
     parser.add_argument("-ah", "--agg_period_hop_size_hours", "-ah", type=int,
                         help="The size in hours to hop each period for aggregation.", default=24)
-
+    parser.add_argument("--dates", action="store_true",
+                        help="Adds dates in legend", default=False)
     args = parser.parse_args()
 
     tp_username = args.tp_username
@@ -317,6 +325,7 @@ def main():
     estimate_agg_boundaries = args.estimate_agg_boundaries
     agg_period_window_size_hours = args.agg_period_window_size_hours
     agg_period_hop_size_hours = args.agg_period_hop_size_hours
+    dates = args.dates
 
     logger.debug(f"Args:")
     logger.debug(f"estimation_window_size_days: {estimation_window_size_days}")
@@ -327,6 +336,7 @@ def main():
     logger.debug(f"estimate_agg_boundaries: {estimate_agg_boundaries}")
     logger.debug(f"agg_period_window_size_hours: {agg_period_window_size_hours}")
     logger.debug(f"agg_period_hop_size_hours: {agg_period_hop_size_hours}")
+    logger.debug(f"dates: {dates}")
 
     K = CSF
     if CSF is None:
@@ -359,6 +369,7 @@ def main():
                         use_circadian_hour_estimate=estimate_agg_boundaries,
                         agg_period_window_size_hours=agg_period_window_size_hours,
                         agg_period_hop_size_hours=agg_period_hop_size_hours,
+                        dates=dates,
                         )
 
 
