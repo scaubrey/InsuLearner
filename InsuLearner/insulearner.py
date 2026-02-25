@@ -1,4 +1,3 @@
-__author__ = "Cameron Summers"
 """
 InsuLearner: Estimating Insulin Pump Settings via Machine Learning
 
@@ -6,29 +5,28 @@ Code underlying this blog post:
 https://www.cameronsummers.com/how_I_calculate_my_sons_insulin_pump_settings_with_machine_learning
 """
 
-import sys
-import os
 import argparse
 import datetime as dt
-
 import warnings
-import matplotlib.cbook
-warnings.filterwarnings("ignore",category=matplotlib.MatplotlibDeprecationWarning)
 
+import matplotlib.cbook
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import scipy
-
+import seaborn as sns
 from sklearn.linear_model import LinearRegression
 
-from InsuLearner.tidepool.tidepool_user_model import TidepoolUser
+from InsuLearner.carbohydrate_sensitivity_factor import estimate_csf
+from InsuLearner.nightscout.nightscout_api import NightscoutAPI
+from InsuLearner.nightscout.nightscout_user_model import NightscoutUser
 from InsuLearner.tidepool.tidepool_api import TidepoolAPI
+from InsuLearner.tidepool.tidepool_user_model import TidepoolUser
 from InsuLearner.util import get_logger
 
-from InsuLearner.carbohydrate_sensitivity_factor import estimate_csf
+warnings.filterwarnings("ignore", category=matplotlib.MatplotlibDeprecationWarning)
 
+__author__ = "Cameron Summers"
 logger = get_logger(__name__)
 
 
@@ -88,6 +86,9 @@ def estimate_therapy_settings_from_window_stats_lr(aggregated_df,
             sample_weights = 1.0 / np.array(np.maximum(1.0, abs(target_bg - aggregated_df["cgm_geo_mean"])) / aggregated_df["cgm_percent_tir"]) * aggregated_df["cgm_percent_available"]
         elif weight_scheme == "Carb Uncertainty":
             sample_weights = scipy.stats.norm.pdf(aggregated_df["total_carbs"], aggregated_df["total_carbs"].mean(), aggregated_df["total_carbs"].std())
+        elif weight_scheme == "Recency":
+            sample_weights = 1 / ((aggregated_df["end_date"].max() - aggregated_df["end_date"]).dt.days + 5)
+            # print(sample_weights)
         else:
             raise Exception("Unknown weight scheme {}.".format(weight_scheme))
 
@@ -126,6 +127,18 @@ def estimate_therapy_settings_from_window_stats_lr(aggregated_df,
     logger.info(f"\tCSF={round(K, 2)} mg/dL / g")
     logger.info(f"\tEstimated ISF={round(isf_estimate_slope, 2)} mg/dL/ U")
 
+    # TMP
+    # y_insulin = pd_1d_series_to_X(aggregated_df[y])
+    # X_carbs = aggregated_df[x]
+    # lm_carb_to_insulin_inverted = LinearRegression()
+    # lm_carb_to_insulin_inverted.fit(y_insulin, X_carbs, sample_weight=sample_weights)
+    # r2_fit_inverted = lm_carb_to_insulin_inverted.score(y_insulin, X_carbs)
+    # cir_estimate_slope_inverted = lm_carb_to_insulin_inverted.coef_[0]
+    # isf_estimate_slope_inverted = cir_estimate_slope_inverted * K
+    # basal_rate_estimate_inverted = -lm_carb_to_insulin_inverted.intercept_ / (cir_estimate_slope_inverted)
+    # logger.info(f"\tSettings Inverted: R2={r2_fit_inverted} CIR={cir_estimate_slope_inverted} ISF={isf_estimate_slope_inverted} Basal Hourly={basal_rate_estimate_inverted/24}.")
+    # TMP
+
     settings = (cir_estimate_slope, isf_estimate_slope, basal_insulin_estimate, lm_carb_to_insulin, r2_fit, K)
     if do_plots:
         plot_aggregated_scatter(aggregated_df,
@@ -158,8 +171,13 @@ def plot_aggregated_scatter(aggregated_df, period_window_size_hours, lr_model=No
     sns.scatterplot(data=scatter_df, x="total_carbs", y="total_insulin", hue=hue_col, ax=ax)
     plt.figure()
 
-    ax.set_ylim(0, aggregated_df["total_insulin"].max() * 1.1)
-    ax.set_xlim(0, aggregated_df["total_carbs"].max() * 1.1)
+    # y_max_insulin = aggregated_df["total_insulin"].max() * 1.1
+    y_max_insulin = 40
+    ax.set_ylim(0, y_max_insulin)
+
+    # y_max_carbs = aggregated_df["total_carbs"].max() * 1.1
+    y_max_carbs = 250
+    ax.set_xlim(0, y_max_carbs)
 
     if settings:
 
@@ -174,11 +192,13 @@ def plot_aggregated_scatter(aggregated_df, period_window_size_hours, lr_model=No
         ax.set_ylabel("Total Insulin in Period T")
 
         # Equations and Settings
-        ax.text(0.6, 0.25, "y={:.4f}*x + {:.2f}, (R^2={:.2f})".format(lr_model.coef_[0], lr_model.intercept_, r2_fit), ha="left", va="top", transform=ax.transAxes)
-        ax.text(0.6, 0.2, "CIR={:.2f} g/U \nBasal Rate={:.2f}U/hr \nISF={:.2f} mg/dL/U (K={:.2f})".format(cir_estimate_slope,
+        tot_U_100g_day = 100/cir_estimate_slope + basal_insulin_estimate
+        ax.text(0.02, 0.95, "y={:.4f}*x + {:.2f}, (R^2={:.2f})".format(lr_model.coef_[0], lr_model.intercept_, r2_fit), ha="left", va="top", transform=ax.transAxes)
+        ax.text(0.02, 0.9, "CIR={:.2f} g/U \nBasal Rate={:.2f}U/hr \nISF={:.2f} mg/dL/U (K={:.2f})\nU for 100g Day: {:.2f}".format(cir_estimate_slope,
                                                                                                    basal_insulin_estimate / period_window_size_hours,
                                                                                                    isf_estimate_slope,
-                                                                                                   K),
+                                                                                                   K,
+                                                                                                    tot_U_100g_day),
                                                                                                    ha="left", va="top", transform=ax.transAxes)
 
         # Stars
@@ -210,7 +230,15 @@ def plot_aggregated_scatter(aggregated_df, period_window_size_hours, lr_model=No
             ax.plot([x1, x2], [y1, y2], label=line_description, color="gray", linestyle="--")
             ax.plot(0, aace_basal_insulin_estimate, marker="*", markersize=12, color="gray", label=star_description)
 
-        ax.legend()
+        if 1:
+            current_basal_total = (0.6 * 24)
+            current_carb_ratio = 9.9
+            current_basal_glucose_estimate = -current_basal_total / (1/current_carb_ratio)
+            x1_current, y1_current = (current_basal_glucose_estimate, 0)
+            y2 = 1.0 / current_carb_ratio * x2 + current_basal_total
+            ax.plot([x1_current, x2], [y1_current, y2], label="Current Settings", color="yellow", linestyle="-.")
+
+        ax.legend(loc="lower right")
 
     plt.show()
 
@@ -231,6 +259,16 @@ def analyze_settings_lr(user, data_start_date, data_end_date,
                                              hop_size_hours=agg_period_hop_size_hours,
                                              plot_hop_raw=False)
     window_df = pd.DataFrame(window_stats)
+
+    # drop_indices = np.random.choice(window_df.index, 1, replace=False)
+    # window_df = window_df.drop(drop_indices)
+
+    # TMP
+    # q = window_df["cgm_mean"].quantile(0.50)
+    # window_df = window_df[window_df["cgm_mean"] < q]
+
+    # window_df["total_carbs"] += 15
+    # /TMP
 
     logger.debug(f'Mean of CGM Mean, {np.round(window_df["cgm_mean"].mean(), 2)}')
     logger.debug(f'Mean of CGM Geo Mean, {np.round(window_df["cgm_geo_mean"].mean(), 2)}')
@@ -266,11 +304,16 @@ def load_user_data(username, password, data_start_date, data_end_date, estimatio
         TidepoolUser object
     """
 
-    tp_api_obj = TidepoolAPI(username, password)
-    user = TidepoolUser()
-    user.load_from_api(tp_api_obj, data_start_date, data_end_date,
-                       user_id=None,  # For a user_obj that is sharing their Tidepool account with this one
-                       save_data=False)
+    try:
+        tp_api_obj = TidepoolAPI(username, password)
+        user = TidepoolUser()
+        user.load_from_api(tp_api_obj, data_start_date, data_end_date,
+                           user_id=None,  # For a user_obj that is sharing their Tidepool account with this one
+                           save_data=False)
+    except Exception as e:
+        raise RuntimeError(
+            "Failed to load Tidepool data. Check username/password, network connectivity, and date range."
+        ) from e
 
     total_basal_days = user.get_num_days_span(data_type="basal")
     total_bolus_days = user.get_num_days_span(data_type="bolus")
@@ -286,12 +329,47 @@ def load_user_data(username, password, data_start_date, data_end_date, estimatio
     return user
 
 
+def load_nightscout_user_data(base_url, token, data_start_date, data_end_date, estimation_window_size_days, api_secret=None):
+    """
+    Load Nightscout user data for the given date range.
+
+    Returns:
+        NightscoutUser object
+    """
+    try:
+        ns_api_obj = NightscoutAPI(base_url=base_url, token=token, api_secret=api_secret)
+        user = NightscoutUser()
+        user.load_from_api(ns_api_obj, data_start_date, data_end_date, save_data=False)
+    except Exception as e:
+        raise RuntimeError(
+            "Failed to load Nightscout data. Check URL/token/api-secret, network connectivity, and date range."
+        ) from e
+
+    total_basal_days = user.get_num_days_span(data_type="basal")
+    total_bolus_days = user.get_num_days_span(data_type="bolus")
+    total_cgm_days = user.get_num_days_span(data_type="cgm")
+    total_food_days = user.get_num_days_span(data_type="food")
+
+    if np.sum([total_basal_days, total_bolus_days, total_cgm_days, total_food_days]) != (estimation_window_size_days * 4):
+        logger.warning(f"*** Warning *** : Num data days span not the size of estimation window size of {estimation_window_size_days} days")
+        logger.warning(f"Basal Days Span {total_basal_days}. Bolus Days Span {total_bolus_days}. CGM Days Span {total_cgm_days}. Food Days Span {total_food_days}")
+
+    user.analyze_duplicates(time_diff_thresh_sec=60 * 60)
+
+    return user
+
+
 def main():
 
     parser = argparse.ArgumentParser("InsuLearner: Estimate Insulin Pump Settings with Linear Regression")
 
-    parser.add_argument("tp_username", type=str, help="Email username for Tidepool Account")
-    parser.add_argument("tp_password", type=str, help="Password for Tidepool Account")
+    parser.add_argument("--source", choices=["tidepool", "nightscout"], default="tidepool",
+                        help="Data source to use. Defaults to tidepool.")
+    parser.add_argument("tp_username", nargs="?", default=None, help="Email username for Tidepool Account")
+    parser.add_argument("tp_password", nargs="?", default=None, help="Password for Tidepool Account")
+    parser.add_argument("--nightscout_url", type=str, default=None, help="Nightscout base URL (for --source nightscout)")
+    parser.add_argument("--nightscout_token", type=str, default=None, help="Nightscout token (optional)")
+    parser.add_argument("--nightscout_api_secret", type=str, default=None, help="Nightscout api-secret (optional)")
     parser.add_argument("-ht", "--height_inches", type=float, help="Your height in inches")
     parser.add_argument("-wt", "--weight_lbs", type=float, help="Your weight in pounds")
     parser.add_argument("-g", "--gender", choices=["male", "female"])
@@ -307,8 +385,12 @@ def main():
 
     args = parser.parse_args()
 
+    source = args.source
     tp_username = args.tp_username
     tp_password = args.tp_password
+    nightscout_url = args.nightscout_url
+    nightscout_token = args.nightscout_token
+    nightscout_api_secret = args.nightscout_api_secret
     estimation_window_size_days = args.num_days
     height_inches = args.height_inches
     weight_lbs = args.weight_lbs
@@ -318,7 +400,8 @@ def main():
     agg_period_window_size_hours = args.agg_period_window_size_hours
     agg_period_hop_size_hours = args.agg_period_hop_size_hours
 
-    logger.debug(f"Args:")
+    logger.debug("Args:")
+    logger.debug(f"source: {source}")
     logger.debug(f"estimation_window_size_days: {estimation_window_size_days}")
     logger.debug(f"height_inches: {height_inches}")
     logger.debug(f"weight_lbs: {weight_lbs}")
@@ -327,6 +410,13 @@ def main():
     logger.debug(f"estimate_agg_boundaries: {estimate_agg_boundaries}")
     logger.debug(f"agg_period_window_size_hours: {agg_period_window_size_hours}")
     logger.debug(f"agg_period_hop_size_hours: {agg_period_hop_size_hours}")
+
+    if source == "tidepool":
+        if not tp_username or not tp_password:
+            raise ValueError("For --source tidepool, provide tp_username and tp_password positional arguments.")
+    elif source == "nightscout":
+        if not nightscout_url:
+            raise ValueError("For --source nightscout, provide --nightscout_url.")
 
     K = CSF
     if CSF is None:
@@ -337,30 +427,77 @@ def main():
         logger.info(f"Provided CSF={K}")
 
     # Get date info
-    today = dt.datetime.now()
-    data_start_date = today - dt.timedelta(days=estimation_window_size_days + 1)
-    data_end_date = today - dt.timedelta(days=1)
-
-    # Uncomment if specific dates desired
-    # data_start_date = dt.datetime(year=2022, month=12, day=1)
-    # data_end_date = dt.datetime(year=2023, month=1, day=26)
-
-    logger.info(f"Running for dates {data_start_date} to {data_end_date}")
-
-    # Load user_obj data into an object
-    user_obj = load_user_data(tp_username, tp_password, data_start_date, data_end_date, estimation_window_size_days)
-
     # Run settings analysis
-    analyze_settings_lr(user_obj,
-                        data_start_date=data_start_date,
-                        data_end_date=data_end_date,
-                        K=K,
-                        do_plots=True,
-                        use_circadian_hour_estimate=estimate_agg_boundaries,
-                        agg_period_window_size_hours=agg_period_window_size_hours,
-                        agg_period_hop_size_hours=agg_period_hop_size_hours,
-                        )
+    cirs = []
+    basals = []
+    isfs = []
+    lr_scores = []
+    tot_ins_100g = []
+
+    window_sizes = [estimation_window_size_days]
+
+    # window_start =
+    for estimation_window_size_days in window_sizes:
+        # todays = [dt.datetime.now() - dt.timedelta(days=i) for i in range(450, -15, -15)]
+        todays = [dt.datetime.now()]
+        for today in todays:
+            # today = dt.datetime.now()
+            data_start_date = today - dt.timedelta(days=estimation_window_size_days + 1)
+            data_end_date = today - dt.timedelta(days=1)
+
+            # Uncomment if specific dates desired
+            # data_start_date = dt.datetime(year=2022, month=12, day=1)
+            # data_end_date = dt.datetime(year=2023, month=1, day=26)
+
+            logger.info(f"Running for dates {data_start_date} to {data_end_date}")
+
+            # Load user_obj data into an object
+            if source == "tidepool":
+                user_obj = load_user_data(tp_username, tp_password, data_start_date, data_end_date, estimation_window_size_days)
+            else:
+                user_obj = load_nightscout_user_data(
+                    base_url=nightscout_url,
+                    token=nightscout_token,
+                    api_secret=nightscout_api_secret,
+                    data_start_date=data_start_date,
+                    data_end_date=data_end_date,
+                    estimation_window_size_days=estimation_window_size_days,
+                )
+
+            for i in range(1):
+
+                cir_estimate, basal_insulin_estimate, isf_estimate, lr_score = analyze_settings_lr(user_obj,
+                                    data_start_date=data_start_date,
+                                    data_end_date=data_end_date,
+                                    K=K,
+                                    do_plots=True,
+                                    use_circadian_hour_estimate=estimate_agg_boundaries,
+                                    agg_period_window_size_hours=agg_period_window_size_hours,
+                                    agg_period_hop_size_hours=agg_period_hop_size_hours,
+                                    # weight_scheme="Recency"
+                                    weight_scheme = None
+                )
+
+                cirs.append(cir_estimate)
+                basals.append(basal_insulin_estimate/agg_period_window_size_hours)
+                isfs.append(isf_estimate)
+                lr_scores.append(lr_score)
+                tot_ins_100g.append(100/cir_estimate + basal_insulin_estimate)
+
+    # plt.plot(cirs)
+    # plt.title("CIR")
+    # plt.figure()
+    # plt.plot(basals)
+    # plt.title("Basal U/hr")
+    # plt.figure()
+    # plt.plot(tot_ins_100g)
+    # plt.title("Total U for 100g in a Day")
+    # plt.show()
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        logger.error(str(e))
+        raise SystemExit(1)

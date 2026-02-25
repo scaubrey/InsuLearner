@@ -2,12 +2,16 @@
 Tests
 """
 
-import pandas as pd
+from pathlib import Path
 
-from InsuLearner.insulearner import estimate_therapy_settings_from_window_stats_lr
+import pandas as pd
+import pytest
+
 from InsuLearner.carbohydrate_sensitivity_factor import estimate_csf
+from InsuLearner.insulearner import estimate_therapy_settings_from_window_stats_lr
 
 EPSILON = 1e-6
+pytestmark = pytest.mark.unit
 
 
 def test_nonregression_linear_model_estimation():
@@ -17,7 +21,8 @@ def test_nonregression_linear_model_estimation():
 
     Last updated April 3, 2023.
     """
-    window_df = pd.read_csv("../data/synthetic_aggregated_dataset.csv")
+    data_path = Path(__file__).resolve().parents[1] / "data" / "synthetic_aggregated_dataset.csv"
+    window_df = pd.read_csv(data_path)
 
     K = 5
     agg_period_window_size_hours = 24
@@ -61,4 +66,3 @@ def test_tidepool_data_download():
     """
     TODO
     """
-

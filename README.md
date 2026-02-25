@@ -5,141 +5,164 @@
 ---
 
 ### _Warning_:
-*_This code can have significant impact on insulin dosing. 
+*_This code can have significant impact on insulin dosing.
 There are no guardrails included here so it's possible to get poor
 results in some circumstances.
 Check with your doctor before making any changes to dosing settings._*
 
+## Overview
 
-### Overview:
+This is the code underlying [my article](https://www.CameronSummers.com/how_I_calculate_my_sons_insulin_pump_settings_with_machine_learning),
+where I describe the machine-learning approach used to estimate pump settings.
 
-This is the code underlying [my article](https://www.CameronSummers.com/how_I_calculate_my_sons_insulin_pump_settings_with_machine_learning) 
-where I describe in plain language the machine learning approach I developed to compute 
-the insulin pump settings for my son.
+InsuLearner estimates:
 
-This library estimates personalized insulin pump settings from historical insulin
-and carbohydrate information. Currently, it interfaces with [Tidepool](https://www.tidepool.org)
-accounts to retrieve data.
-
-The code uses machine learning to estimate:
-
-- Carbohydate Ratio (CIR)
+- Carbohydrate Ratio (CIR)
 - Basal Rate
-- Insulin Sensivity Factor (ISF)
+- Insulin Sensitivity Factor (ISF)
 
-Historical carbohydrate and insulin data directly estimate CIR and Basal 
-Rate using Linear Regression. An estimate of Carbohydrate Sensitivity Factor 
-(CSF) and the estimate CIR is used to estimate ISF.
+Supported data sources:
 
-Here is an example plot of a fitted model and estimated settings:
+- [Tidepool](https://www.tidepool.org)
+- [Nightscout](https://nightscout.github.io/)
 
-![alt text](static/example_settings_plot_plus_aace.jpg)
+The model fits linear regression over aggregated carb/insulin windows and derives CIR + basal,
+then uses CSF (`K`) and CIR to estimate ISF.
+
+![Example settings plot](/Users/cameron/dev/InsuLearner/static/example_settings_plot_plus_aace.jpg)
 
 ## Dependencies
 
-Developed and tested with Python 3.9
+- Python `>=3.9,<4.0`
 
 ## Installation
 
-For easy CLI tool create a virtual environment and then run:
-```
+```bash
 pip install insulearner
 ```
 
-For digging into the code to understand what's going on (recommended):
+Or for development:
 
-```
+```bash
 git clone https://github.com/scaubrey/InsuLearner
+cd InsuLearner
+pip install -e .
 ```
 
 ## Usage (CLI)
 
-The install with pip provides a command line interface so you can run `insulearner`.
+The package installs a CLI entrypoint: `insulearner`.
 
-#### CLI Examples
+### Tidepool Example
 
-If you don't know your Carbohydrate Sensitivity Factor (CSF) I devised
-an estimator based on height and weight. Note: this estimator is an
-educated guess and *not validated*. It's probably better if you estimate
-it yourself.
-
-`insulearner <your_tidepool_email> <your_tidepool_password> --num_days 60 --height_inches 72 --weight_lbs 200 --gender male`
-
-If you do have an estimate of your CSF through your own testing:
-
-`insulearner <your_tidepool_email> <your_tidepool_password> --num_days 60 --CSF 4.2`
-
-#### More CLI Options
-
-`--agg_period_window_size_hours` This is the size of the time period in days over which
-aggregate insulin and carb data. I theorized in [my article](https://www.cameronsummers.com/how_I_calculate_my_sons_insulin_pump_settings_with_machine_learning) 
-that longer periods would converge to better estimates of CIR and Basal Rate. Default
-is 1 day (24 hours) but I have seen good results with many more days.
-
-`--agg_period_hop_size_hours` This is how much to shift over the aggregation
-window for each data point. For example, if the window size above is 72 hrs 
-and this is 24 hours, then the aggregation for the first data point will be days 1-3, the
-second data point will be days 2-4, and the third data point will
-be days 3-5, and so on.
-
-`--estimate_agg_boundaries` If set this will use an autocorrelation-like algorithm to
-estimate the hour of the day when blood glucose movement is the least active, ie 
-isolating associated insulin and carb effects.
-
-
-## Usage (code)
-
-Once installed with pip, you can use the functions in your code:
-
-```
->>> from InsuLearner.insulearner import analyze_settings_lr
+```bash
+insulearner <your_tidepool_email> <your_tidepool_password> \
+  --num_days 60 \
+  --height_inches 72 \
+  --weight_lbs 200 \
+  --gender male
 ```
 
+If you already know CSF:
 
-## Algorithms
+```bash
+insulearner <your_tidepool_email> <your_tidepool_password> --num_days 60 --CSF 4.2
+```
 
-There are three algorithms I developed that are in this code and worth
-being aware of:
+### Nightscout Example
 
-1. An autocorrelation-like algorithm to find inactive periods in data
-    in order to help denoise the data for fitting a model.
-2. Linear Regression to estimate Carb Ratio (CIR), Basal Rate, and Insulin
-    Sensitivity Factor (ISF)
-   1. This is methodology is described in [my article](https://www.CameronSummers.com/how_I_calculate_my_sons_insulin_pump_settings_with_machine_learning).
-3. Estimating Carb Sensitivity Factor (CSF)
-   1. CSF is used to derive ISF from the estimated CIR from the Linear Regression. 
-        It's best to estimate CSF through testing, but I've provided an
-        algorithm to approximate it based on blood volume computed via height
-        and weight. While based on knowledge of biology this algorithm *has not been validated*. 
+```bash
+insulearner --source nightscout \
+  --nightscout_url https://your-site.example.com \
+  --nightscout_token <token-if-used> \
+  --nightscout_api_secret <api-secret-if-used> \
+  --num_days 30 \
+  --CSF 12.5
+```
 
-## Tests
+Notes:
 
-I included a couple of basic regression tests in the `tests` folder of the code that
-can be run with pytest.
+- `--source` defaults to `tidepool`.
+- For `--source tidepool`, positional `tp_username tp_password` are required.
+- For `--source nightscout`, `--nightscout_url` is required.
+
+### Key CLI Options
+
+- `--num_days`: number of days to analyze
+- `--agg_period_window_size_hours`: aggregation window size in hours (default: `24`)
+- `--agg_period_hop_size_hours`: hop size in hours (default: `24`)
+- `--estimate_agg_boundaries`: estimate aggregation boundaries via autocorrelation-like logic
+
+## Python API
+
+```python
+from InsuLearner import (
+    TidepoolUser,
+    NightscoutUser,
+    TidepoolAPI,
+    NightscoutAPI,
+    analyze_settings_lr,
+)
+```
+
+## Environment Variables for Tests (PyCharm-friendly)
+
+Use `.env.test` in the repo root so you do not re-enter credentials each run.
+
+1. Copy template:
+
+```bash
+cp .env.test.example .env.test
+```
+
+2. Fill values in `.env.test`.
+
+3. Run tests from PyCharm or terminal. `tests/conftest.py` auto-loads `.env.test`.
+
+Important:
+
+- `.env.test` is git-ignored.
+- `.env.test.example` is safe to commit.
+
+## Test Suite
+
+Run all non-live tests:
+
+```bash
+pytest -q -m "not live"
+```
+
+Run all tests including live (requires credentials):
+
+```bash
+pytest -q
+```
+
+Run only live parity tests:
+
+```bash
+pytest -q -m "live"
+```
+
+Run lint:
+
+```bash
+ruff check .
+```
+
+## CI
+
+- PR/Push CI runs non-live tests only.
+- Live API parity tests are split into a manual GitHub Actions workflow.
+
+## Release Process
+
+See [RELEASE.md](/Users/cameron/dev/InsuLearner/RELEASE.md) for the checklist.
 
 ## Acknowledgements
 
-Special thanks to [Tidepool](https://www.tidepool.org) for doing
-great things for the diabetes community.
+Special thanks to [Tidepool](https://www.tidepool.org) for serving the diabetes community.
 
-## How to Contribute
+## License
 
-### Contribute Code:
-
-Hello! Thanks for considering contributing.
-
-- Step 1. Please open an Issue with a description of what you're trying to add/fix/change
-- Step 2. Fork and create a feature branch in the format <some-description>/<your issue number>
-- Step 3. Please squash all your commits into one with a good commit message before opening a pull request
-- Step 4. Open a pull request, reference your original issue, and provide a concise description of how your changes fixed the issue
-- Step 5. Your PR requires approval before it can be merged.
-
-### Contribute Results:
-
-If you've run this and had success or issues, please consider sharing so 
-it can be improved. You can message me on [my website](https://www.cameronsummers.com/contact).
-
-
-## License: [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
-
-
+[GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
