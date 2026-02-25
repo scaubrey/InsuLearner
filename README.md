@@ -31,6 +31,12 @@ then uses CSF (`K`) and CIR to estimate ISF.
 
 ![Example settings plot](static/example_settings_plot_plus_aace.jpg)
 
+## Project Surfaces
+
+- Open-source technical source of truth: [InsuLearner on GitHub](https://github.com/scaubrey/InsuLearner)
+- Hosted product for people who do not want to run code locally: [Insulearner Web](https://www.insulearner.com)
+- Public updates and release/blog context: [CameronSummers.com](https://www.cameronsummers.com)
+
 ## Dependencies
 
 - Python `>=3.9,<4.0`
@@ -157,7 +163,7 @@ ruff check .
 
 ## Release Process
 
-See [RELEASE.md](/Users/cameron/dev/InsuLearner/RELEASE.md) for the checklist.
+See [RELEASE.md](RELEASE.md) for the checklist.
 
 ## Acknowledgements
 
