@@ -29,7 +29,7 @@ Supported data sources:
 The model fits linear regression over aggregated carb/insulin windows and derives CIR + basal,
 then uses CSF (`K`) and CIR to estimate ISF.
 
-![Example settings plot](/Users/cameron/dev/InsuLearner/static/example_settings_plot_plus_aace.jpg)
+![Example settings plot](static/example_settings_plot_plus_aace.jpg)
 
 ## Dependencies
 
