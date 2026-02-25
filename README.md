@@ -2,6 +2,12 @@
 ## Author: Cameron Summers
 #### Author's Website: [www.CameronSummers.com](https://www.CameronSummers.com)
 
+## Project Surfaces
+
+- Open-source technical source of truth: [InsuLearner on GitHub](https://github.com/scaubrey/InsuLearner)
+- Hosted product for people who do not want to run code locally: [Insulearner Web](https://www.insulearner.com)
+- Public updates and release/blog context: [CameronSummers.com](https://www.cameronsummers.com)
+
 ---
 
 ### _Warning_:
@@ -30,12 +36,6 @@ The model fits linear regression over aggregated carb/insulin windows and derive
 then uses CSF (`K`) and CIR to estimate ISF.
 
 ![Example settings plot](static/example_settings_plot_plus_aace.jpg)
-
-## Project Surfaces
-
-- Open-source technical source of truth: [InsuLearner on GitHub](https://github.com/scaubrey/InsuLearner)
-- Hosted product for people who do not want to run code locally: [Insulearner Web](https://www.insulearner.com)
-- Public updates and release/blog context: [CameronSummers.com](https://www.cameronsummers.com)
 
 ## Dependencies
 
