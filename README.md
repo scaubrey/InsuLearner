@@ -92,6 +92,13 @@ Notes:
 - For `--source tidepool`, positional `tp_username tp_password` are required.
 - For `--source nightscout`, `--nightscout_url` is required.
 
+Nightscout compatibility note:
+
+- InsuLearner supports the main Nightscout data needed for analysis: `entries`, `treatments`, and `profile`.
+- Nightscout deployments vary in how they store and filter `entries` data. InsuLearner now handles common variants using `date`, `mills`, and `created_at`, with a client-side fallback when server-side filtering returns no rows.
+- Basal reconstruction remains the most deployment-specific part of Nightscout support, so results can still vary across custom setups, plugins, and treatment event conventions.
+- If you run into a compatibility issue, please open a GitHub issue and include a redacted sample of the relevant Nightscout JSON shape.
+
 ### Key CLI Options
 
 - `--num_days`: number of days to analyze

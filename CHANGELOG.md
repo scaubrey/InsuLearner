@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.1] - 2026-04-02
+
+### Changed
+
+- README now documents Nightscout compatibility expectations and points users to open issues with redacted JSON samples when a deployment shape is unsupported.
+
+### Fixed
+
+- Nightscout `entries` fetching now supports sites that store entry timestamps as `date`, `mills`, or `created_at` instead of `dateString`.
+- Nightscout `entries` fetching now falls back to client-side date filtering when a deployment allows unfiltered entry reads but returns no rows for server-side filtered requests.
+
 ## [0.2.0] - 2026-02-25
 
 ### Added
@@ -31,7 +42,6 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
-- Package version bumped to `0.2.0`.
 - Python support baseline moved to `>=3.9,<4.0`.
 - CLI now emits source-specific validation errors and clearer runtime failure messages.
 - README updated for Nightscout + testing workflow.

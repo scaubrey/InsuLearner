@@ -52,7 +52,7 @@ python -m twine upload dist/*
 
 ## 5. Post-release
 
-- Create git tag for version (for example: `v0.2.0`).
+- Create git tag for version (for example: `v0.2.1`).
 - Create GitHub Release notes from `CHANGELOG.md`.
 - Smoke test install in a fresh environment:
 

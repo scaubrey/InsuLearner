@@ -21,13 +21,17 @@ class _FakeResponse:
 
 
 def test_nightscout_entries_uses_full_day_range_and_token(monkeypatch):
-    captured = {}
+    calls = []
 
     def fake_get(url, headers=None, params=None, timeout=None):
-        captured["url"] = url
-        captured["headers"] = headers
-        captured["params"] = params
-        captured["timeout"] = timeout
+        calls.append(
+            {
+                "url": url,
+                "headers": headers,
+                "params": dict(params),
+                "timeout": timeout,
+            }
+        )
         return _FakeResponse(status_code=200, payload=[])
 
     monkeypatch.setattr("requests.get", fake_get)
@@ -35,13 +39,39 @@ def test_nightscout_entries_uses_full_day_range_and_token(monkeypatch):
     api = NightscoutAPI(base_url="https://ns.example", token="abc123")
     start_date = dt.datetime(2026, 2, 1, 12, 34, 56)
     end_date = dt.datetime(2026, 2, 3, 7, 8, 9)
+    normalized_start, normalized_end = api._normalize_day_range(start_date, end_date)
 
     api.get_entries(start_date, end_date)
 
-    assert captured["url"].endswith("/api/v1/entries.json")
-    assert captured["params"]["find[dateString][$gte]"] == "2026-02-01T00:00:00.000Z"
-    assert captured["params"]["find[dateString][$lte]"] == "2026-02-03T23:59:59.000Z"
-    assert captured["params"]["token"] == "abc123"
+    assert calls[0]["url"].endswith("/api/v1/entries.json")
+    assert calls[0]["params"]["find[date][$gte]"] == api._date_to_nightscout_millis(normalized_start)
+    assert calls[0]["params"]["find[date][$lte]"] == api._date_to_nightscout_millis(normalized_end)
+    assert calls[0]["params"]["token"] == "abc123"
+
+
+def test_nightscout_entries_falls_back_to_client_side_filtering(monkeypatch):
+    calls = []
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        calls.append({"url": url, "params": dict(params)})
+        if "find[date][$gte]" in params:
+            return _FakeResponse(status_code=200, payload=[], url=url)
+
+        payload = [
+            {"_id": "in-range", "date": 1775161822455, "sgv": 207},
+            {"_id": "out-of-range", "date": 1774800000000, "sgv": 150},
+        ]
+        return _FakeResponse(status_code=200, payload=payload, url=url)
+
+    monkeypatch.setattr("requests.get", fake_get)
+
+    api = NightscoutAPI(base_url="https://ns.example", token="abc123")
+    result = api.get_entries(dt.datetime(2026, 4, 2), dt.datetime(2026, 4, 2))
+
+    assert len(calls) == 2
+    assert "find[date][$gte]" in calls[0]["params"]
+    assert calls[1]["params"] == {"count": 10000, "token": "abc123"}
+    assert [row["_id"] for row in result] == ["in-range"]
 
 
 def test_nightscout_auth_fallback_hash_on_401(monkeypatch):

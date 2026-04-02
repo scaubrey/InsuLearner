@@ -44,6 +44,9 @@ class NightscoutAPI(object):
     def _date_to_nightscout_str(self, date_obj):
         return date_obj.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
+    def _date_to_nightscout_millis(self, date_obj):
+        return int(date_obj.timestamp() * 1000)
+
     def _normalize_day_range(self, start_date, end_date):
         # Match Tidepool behavior: query whole calendar days, not wall-clock instants.
         start = dt.datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0)
@@ -115,11 +118,9 @@ class NightscoutAPI(object):
 
     def _build_entries_params(self, start_date, end_date):
         start_date, end_date = self._normalize_day_range(start_date, end_date)
-        start_iso = self._date_to_nightscout_str(start_date)
-        end_iso = self._date_to_nightscout_str(end_date)
         return {
-            "find[dateString][$gte]": start_iso,
-            "find[dateString][$lte]": end_iso,
+            "find[date][$gte]": self._date_to_nightscout_millis(start_date),
+            "find[date][$lte]": self._date_to_nightscout_millis(end_date),
             "count": 10000,
         }
 
@@ -133,12 +134,51 @@ class NightscoutAPI(object):
             "count": 10000,
         }
 
+    def _entry_in_range(self, entry, start_ms, end_ms):
+        candidate = entry.get("date")
+        if candidate is None:
+            candidate = entry.get("mills")
+
+        if candidate is not None:
+            try:
+                return start_ms <= int(float(candidate)) <= end_ms
+            except Exception:
+                pass
+
+        created_at = entry.get("created_at")
+        if created_at:
+            try:
+                created_dt = dt.datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+                return start_ms <= int(created_dt.timestamp() * 1000) <= end_ms
+            except Exception:
+                return False
+
+        return False
+
+    def _filter_entries_client_side(self, entries, start_date, end_date):
+        start_date, end_date = self._normalize_day_range(start_date, end_date)
+        start_ms = self._date_to_nightscout_millis(start_date)
+        end_ms = self._date_to_nightscout_millis(end_date)
+        return [entry for entry in entries if isinstance(entry, dict) and self._entry_in_range(entry, start_ms, end_ms)]
+
     def get_entries(self, start_date, end_date):
-        return self._fetch_all_pages(
+        filtered = self._fetch_all_pages(
             self.entries_url,
             self._build_entries_params(start_date, end_date),
             page_size=10000,
         )
+        if filtered:
+            return filtered
+
+        # Some Nightscout deployments allow unfiltered entry reads but do not
+        # reliably honor server-side date filtering. Fall back to client-side filtering.
+        logger.warning("Nightscout entries query returned no rows with server-side filters; falling back to client-side filtering.")
+        all_entries = self._fetch_all_pages(
+            self.entries_url,
+            {"count": 10000},
+            page_size=10000,
+        )
+        return self._filter_entries_client_side(all_entries, start_date, end_date)
 
     def get_treatments(self, start_date, end_date):
         return self._fetch_all_pages(
